@@ -1,0 +1,682 @@
+---
+title: "Group 2: International Student Policy"
+subtitle: "602 (Fall 2023)"
+author: Nandni Talreja, Aodan Kinneen, Sagnik Chand
+format: 
+  html:
+    toc: true
+    toc-depth: 2
+    toc-title: Contents
+    toc-location: left
+    html-math-method: katex
+    theme: flatly
+    smooth-scroll: true
+    link-external-icon: true
+    link-external-newwindow: true
+    citations-hover: true
+    footnotes-hover: true
+    font-size: 80%
+---
+
+<!--
+ATTENTION: PLEASE SUBMIT both your qmd file and html file.
+-->
+
+
+<!--
+Replace the placeholders (title and author) with yours in the yaml above.
+-->
+```{r}
+# adding all the packages we might need to use
+library(haven)
+library(ggplot2)
+library(dplyr)
+library(tidyr)
+library(knitr)
+library(tidyverse)
+library(skimr)
+library(descr)
+library(srvyr)
+library(survey)
+library(weights)
+library(anesrake)
+library(data.table)
+library(stargazer)
+library(pollster)
+library(kableExtra)
+library(labelled)
+library(janitor)
+library(rstatix)
+library(flextable)
+```
+
+
+
+# Project Description
+<!--
+State your research question and hypothesis along with the description of your experiment in one paragraph.
+-->
+
+
+```{r}
+# data import, cleaning, and recoding including IV
+library(tidyverse)
+
+finaldata <- read_csv("C:/Users/talre/Desktop/UMASS/DACSS/Fall 2023/DACSS 602/group project/RD_Omnibus_FA23_final_dec7.csv") # final data
+
+head(finaldata)
+
+
+# subseting demographic questions for all groups
+demos <- finaldata %>%
+  filter(Status != "Survey Preview") %>%
+  select(rid, age, gender, hhi, ethnicity, hispanic,
+         education, political_party, region, zip) 
+# codebook is available in Canvas
+dim(demos)
+
+
+# Group 1 as an example
+g2 <- finaldata %>%
+  filter(Status != "Survey Preview") %>% # remove previews
+  select(starts_with(c("g2q","g2R", "g2_")), rid) %>%
+  full_join(demos) %>% # we want to keep all variables
+  filter(!row_number() %in% c(1, 2)) # drop the first two rows
+
+head(g2)
+
+
+
+# IV
+# focus on g1_DO (Display Order: g#_DO) to find 
+# which treatment R received.
+# Group 1's treatments are placed in the last part of the string, 
+# g1q3, g1q4, g1q5, g1q6
+# what we'd like to do is to create a new variable 
+# that has four levels
+# for the four treatments
+# to use the str_detect() function, let's use stringr() package
+
+library(stringr)
+
+g2 %>% 
+  mutate(g2_IV = case_when(
+    str_detect(g2_DO, "g2q6") ~ 1,
+    str_detect(g2_DO, "g2q7") ~ 2,
+    str_detect(g2_DO, "g2q8") ~ 3
+  )) %>%
+  select(g2_DO, g2_IV) # to check; and it works! 
+
+g2 <- g2 %>% 
+  mutate(g2_IV = case_when(
+    str_detect(g2_DO, "g2q6") ~ 1,
+    str_detect(g2_DO, "g2q7") ~ 2,
+    str_detect(g2_DO, "g2q8") ~ 3
+  )) 
+
+glimpse(g2)
+
+g2 <- na.omit(g2)
+
+```
+
+
+
+
+# Descriptive Summary
+<!--
+One descriptive table and/or plot: Provide an overview of all the variables used in the statistical test. For example, the mean, standard deviation, range (min/max), contingency table, etc.
+-->
+
+```{r}
+
+names(g2) # names(DATAFRAME)
+describe(g2) # describe(DATAFRAME)
+
+# getting stats
+#omni_pass %>% 
+#  get_summary_stats(     
+#    g2q2, g2q3,  # columns to calculate for
+#    type = "common")
+
+# Looking closely at my questions
+class(g2$g2q2) #Tells you the class of the variable 
+label(g2$g2q2) #Tells you the variable label if one exists
+attributes(g2$g2q2) #Tells you the value labels for the variable if they exist - USE 
+freq(g2$g2q2)
+
+sum_stat <- function(x){
+  stat <- tibble(
+  mean=mean(x,na.rm=T),
+  median=median(x,na.rm=T),
+  sd=sd(x,na.rm=T)
+  )
+  return(stat)
+}
+
+sum_stat(g2$age)
+
+g2$weight <- 1
+
+# topline analysis for q2
+topline(df = g2, variable = g2q2, 
+        weight = weight, pct = FALSE, cum_pct=FALSE) %>% 
+  kable(digits=c(0, 0, 1), 
+        col.names = c('Response', 'N', 
+                      'Percent <br> Responding'),#Changes names of the columns to make them more readable for people 
+        align=('lcc'),caption = "Question: Are you in favor or opposition to the universities new policy of reserving 15% of its student body for international students?", 
+        escape=FALSE, position="left") %>% #Use align to chance the alignment of each column 
+  kable_classic(full_width = F, 
+                html_font = "verdana") # %>% #Controls font and width of table 
+
+# topline analysis for q3
+topline(df = g2, variable = g2q3, 
+        weight = weight, pct = FALSE, cum_pct=FALSE) %>% 
+  kable(digits=c(0, 0, 1), 
+        col.names = c('Response', 'N', 
+                      'Percent <br> Responding'),#Changes names of the columns to make them more readable for people 
+        align=('lcc'),caption = "Question: Did the article you just read shape your opinion to the previous question?", 
+        escape=FALSE, position="left") %>% #Use align to chance the alignment of each column 
+  kable_classic(full_width = F, 
+                html_font = "verdana") # %>% #Controls font and width of table 
+
+# topline analysis for q4
+topline(df = g2, variable = g2q4, 
+        weight = weight, pct = FALSE, cum_pct=FALSE) %>% 
+  kable(digits=c(0, 0, 1), 
+        col.names = c('Response', 'N', 
+                      'Percent <br> Responding'),#Changes names of the columns to make them more readable for people 
+        align=('lcc'),caption = "Question: How convincing did you find the article to be in justifying the universities new policy of reserving 15% of its student body for international students?", 
+        escape=FALSE, position="left") %>% #Use align to chance the alignment of each column 
+  kable_classic(full_width = F, 
+                html_font = "verdana") # %>% #Controls font and width of table 
+
+# topline analysis for q5
+topline(df = g2, variable = g2q5, 
+        weight = weight, pct = FALSE, cum_pct=FALSE) %>% 
+  kable(digits=c(0, 0, 1), 
+        col.names = c('Response', 'N', 
+                      'Percent <br> Responding'),#Changes names of the columns to make them more readable for people 
+        align=('lcc'),caption = "Question: What is your opinion on the percentage of the student body that is being put aside for international students?", 
+        escape=FALSE, position="left") %>% #Use align to chance the alignment of each column 
+  kable_classic(full_width = F, 
+                html_font = "verdana") # %>% #Controls font and width of table 
+
+g2 <- g2 %>% #Explicitly making the values -1/-9 NA 
+  mutate(education = replace(education, education <= -1, NA)) #Recodes all values in education variable <0 to NA since all negative values represent non-analyzable data 
+
+ #Collapse into 4 groups - notice new name is educ4 to indicate number of educ groups
+  g2 <- g2 %>%   
+    mutate(educ4 = case_when(
+      education==1 ~ 'HS or Less',
+      education==2 ~ 'HS or Less',
+      education==3 ~ 'Some College',
+      education==4 ~ 'Some College',
+      education==5 ~ 'Some College',
+      education==6  ~ 'Bachelors',
+      education==7 ~ 'Advanced Degree',
+      education==8 ~ 'Advanced Degree',))
+
+  g2 <- g2 %>% 
+  mutate(g2_group = case_when(
+    str_detect(g2_DO, "g2q6") ~ "Economic",
+    str_detect(g2_DO, "g2q7") ~ "Moral",
+    str_detect(g2_DO, "g2q8") ~ "Control"
+  )) 
+  
+groups <- ggplot(g2,
+               aes(x = g2_group)) +
+  geom_bar(stat = "count", color = "black", fill = "lightblue") +
+  xlab("Groups the Participants were in") 
+
+groups
+  
+q2 <- ggplot(g2,
+               aes(x = g2q2)) +
+  geom_bar(stat = "count", color = "black", fill = "red") +
+  xlab("Are you in favor or opposition to the universities new policy of reserving 15% of its student body for international students?")
+q2
+
+q3 <- ggplot(g2,
+               aes(x = g2q3)) +
+  geom_bar(stat = "count", color = "black", fill = "pink") +
+  xlab("Did the article you just read shape your opinion to the previous question?")
+q3
+
+q4 <- ggplot(g2,
+               aes(x = g2q4)) +
+  geom_bar(stat = "count", color = "black", fill = "lavender") +
+  xlab("How convincing did you find the article to be in justifying the universities new policy of reserving 15% of its student body for international students?")
+q4
+
+q5 <- ggplot(g2,
+               aes(x = g2q5)) +
+  geom_bar(stat = "count", color = "black", fill = "yellow") +
+  xlab("What is your opinion on the percentage of the student body that is being put aside for international students?")
+q5
+
+```
+```{r}
+# dividing the groups
+
+control_group <- g2 %>% filter(g2_group == "Control")
+economic_group <- g2 %>% filter(g2_group == "Economic")
+moral_group <- g2 %>% filter(g2_group == "Moral")
+
+```
+
+
+```{r}
+
+#analysis for control group 
+
+# topline analysis for q2
+topline(df = control_group, variable = g2q2, 
+        weight = weight, pct = FALSE, cum_pct=FALSE) %>% 
+  kable(digits=c(0, 0, 1), 
+        col.names = c('Response', 'N', 
+                      'Percent <br> Responding'),#Changes names of the columns to make them more readable for people 
+        align=('lcc'),caption = "Question: Are you in favor or opposition to the universities new policy of reserving 15% of its student body for international students?", 
+        escape=FALSE, position="left") %>% #Use align to chance the alignment of each column 
+  kable_classic(full_width = F, 
+                html_font = "verdana") # %>% #Controls font and width of table 
+
+# topline analysis for q3
+topline(df = control_group, variable = g2q3, 
+        weight = weight, pct = FALSE, cum_pct=FALSE) %>% 
+  kable(digits=c(0, 0, 1), 
+        col.names = c('Response', 'N', 
+                      'Percent <br> Responding'),#Changes names of the columns to make them more readable for people 
+        align=('lcc'),caption = "Question: Did the article you just read shape your opinion to the previous question?", 
+        escape=FALSE, position="left") %>% #Use align to chance the alignment of each column 
+  kable_classic(full_width = F, 
+                html_font = "verdana") # %>% #Controls font and width of table 
+
+# topline analysis for q4
+topline(df = control_group, variable = g2q4, 
+        weight = weight, pct = FALSE, cum_pct=FALSE) %>% 
+  kable(digits=c(0, 0, 1), 
+        col.names = c('Response', 'N', 
+                      'Percent <br> Responding'),#Changes names of the columns to make them more readable for people 
+        align=('lcc'),caption = "Question: How convincing did you find the article to be in justifying the universities new policy of reserving 15% of its student body for international students?", 
+        escape=FALSE, position="left") %>% #Use align to chance the alignment of each column 
+  kable_classic(full_width = F, 
+                html_font = "verdana") # %>% #Controls font and width of table 
+
+# topline analysis for q5
+topline(df = control_group, variable = g2q5, 
+        weight = weight, pct = FALSE, cum_pct=FALSE) %>% 
+  kable(digits=c(0, 0, 1), 
+        col.names = c('Response', 'N', 
+                      'Percent <br> Responding'),#Changes names of the columns to make them more readable for people 
+        align=('lcc'),caption = "Question: What is your opinion on the percentage of the student body that is being put aside for international students?", 
+        escape=FALSE, position="left") %>% #Use align to chance the alignment of each column 
+  kable_classic(full_width = F, 
+                html_font = "verdana") # %>% #Controls font and width of table 
+
+  
+c_q2 <- ggplot(control_group,
+               aes(x = g2q2)) +
+  geom_bar(stat = "count", color = "black", fill = "red") +
+  xlab("Are you in favor or opposition to the universities new policy?")
+c_q2
+
+c_q3 <- ggplot(control_group,
+               aes(x = g2q3)) +
+  geom_bar(stat = "count", color = "black", fill = "pink") +
+  xlab("Did the article you just read shape your opinion to the previous question?")
+c_q3
+
+c_q4 <- ggplot(control_group,
+               aes(x = g2q4)) +
+  geom_bar(stat = "count", color = "black", fill = "lavender") +
+  xlab("How convincing did you find the article to be in justifying the universities new policy of reserving 15% of its student body for international students?")
+c_q4
+
+c_q5 <- ggplot(control_group,
+               aes(x = g2q5)) +
+  geom_bar(stat = "count", color = "black", fill = "yellow") +
+  xlab("What is your opinion on the percentage of the student body that is being put aside for international students?")
+c_q5
+
+```
+
+```{r}
+#analysis for economic group 
+
+# topline analysis for q2
+topline(df = economic_group, variable = g2q2, 
+        weight = weight, pct = FALSE, cum_pct=FALSE) %>% 
+  kable(digits=c(0, 0, 1), 
+        col.names = c('Response', 'N', 
+                      'Percent <br> Responding'),#Changes names of the columns to make them more readable for people 
+        align=('lcc'),caption = "Question: Are you in favor or opposition to the universities new policy of reserving 15% of its student body for international students?", 
+        escape=FALSE, position="left") %>% #Use align to chance the alignment of each column 
+  kable_classic(full_width = F, 
+                html_font = "verdana") # %>% #Controls font and width of table 
+
+# topline analysis for q3
+topline(df = economic_group, variable = g2q3, 
+        weight = weight, pct = FALSE, cum_pct=FALSE) %>% 
+  kable(digits=c(0, 0, 1), 
+        col.names = c('Response', 'N', 
+                      'Percent <br> Responding'),#Changes names of the columns to make them more readable for people 
+        align=('lcc'),caption = "Question: Did the article you just read shape your opinion to the previous question?", 
+        escape=FALSE, position="left") %>% #Use align to chance the alignment of each column 
+  kable_classic(full_width = F, 
+                html_font = "verdana") # %>% #Controls font and width of table 
+
+# topline analysis for q4
+topline(df = economic_group, variable = g2q4, 
+        weight = weight, pct = FALSE, cum_pct=FALSE) %>% 
+  kable(digits=c(0, 0, 1), 
+        col.names = c('Response', 'N', 
+                      'Percent <br> Responding'),#Changes names of the columns to make them more readable for people 
+        align=('lcc'),caption = "Question: How convincing did you find the article to be in justifying the universities new policy of reserving 15% of its student body for international students?", 
+        escape=FALSE, position="left") %>% #Use align to chance the alignment of each column 
+  kable_classic(full_width = F, 
+                html_font = "verdana") # %>% #Controls font and width of table 
+
+# topline analysis for q5
+topline(df = economic_group, variable = g2q5, 
+        weight = weight, pct = FALSE, cum_pct=FALSE) %>% 
+  kable(digits=c(0, 0, 1), 
+        col.names = c('Response', 'N', 
+                      'Percent <br> Responding'),#Changes names of the columns to make them more readable for people 
+        align=('lcc'),caption = "Question: What is your opinion on the percentage of the student body that is being put aside for international students?", 
+        escape=FALSE, position="left") %>% #Use align to chance the alignment of each column 
+  kable_classic(full_width = F, 
+                html_font = "verdana") # %>% #Controls font and width of table 
+
+  
+e_q2 <- ggplot(economic_group,
+               aes(x = g2q2)) +
+  geom_bar(stat = "count", color = "black", fill = "red") +
+  xlab("Are you in favor or opposition to the universities new policy of reserving 15% of its student body for international students?")
+e_q2
+
+e_q3 <- ggplot(economic_group,
+               aes(x = g2q3)) +
+  geom_bar(stat = "count", color = "black", fill = "pink") +
+  xlab("Did the article you just read shape your opinion to the previous question?")
+e_q3
+
+e_q4 <- ggplot(economic_group,
+               aes(x = g2q4)) +
+  geom_bar(stat = "count", color = "black", fill = "lavender") +
+  xlab("How convincing did you find the article to be in justifying the universities new policy of reserving 15% of its student body for international students?")
+e_q4
+
+e_q5 <- ggplot(economic_group,
+               aes(x = g2q5)) +
+  geom_bar(stat = "count", color = "black", fill = "yellow") +
+  xlab("What is your opinion on the percentage of the student body that is being put aside for international students?")
+e_q5
+
+```
+
+```{r}
+#analysis for moral group 
+
+# topline analysis for q2
+topline(df = moral_group, variable = g2q2, 
+        weight = weight, pct = FALSE, cum_pct=FALSE) %>% 
+  kable(digits=c(0, 0, 1), 
+        col.names = c('Response', 'N', 
+                      'Percent <br> Responding'),#Changes names of the columns to make them more readable for people 
+        align=('lcc'),caption = "Question: Are you in favor or opposition to the universities new policy of reserving 15% of its student body for international students?", 
+        escape=FALSE, position="left") %>% #Use align to chance the alignment of each column 
+  kable_classic(full_width = F, 
+                html_font = "verdana") # %>% #Controls font and width of table 
+
+# topline analysis for q3
+topline(df = moral_group, variable = g2q3, 
+        weight = weight, pct = FALSE, cum_pct=FALSE) %>% 
+  kable(digits=c(0, 0, 1), 
+        col.names = c('Response', 'N', 
+                      'Percent <br> Responding'),#Changes names of the columns to make them more readable for people 
+        align=('lcc'),caption = "Question: Did the article you just read shape your opinion to the previous question?", 
+        escape=FALSE, position="left") %>% #Use align to chance the alignment of each column 
+  kable_classic(full_width = F, 
+                html_font = "verdana") # %>% #Controls font and width of table 
+
+# topline analysis for q4
+topline(df = moral_group, variable = g2q4, 
+        weight = weight, pct = FALSE, cum_pct=FALSE) %>% 
+  kable(digits=c(0, 0, 1), 
+        col.names = c('Response', 'N', 
+                      'Percent <br> Responding'),#Changes names of the columns to make them more readable for people 
+        align=('lcc'),caption = "Question: How convincing did you find the article to be in justifying the universities new policy of reserving 15% of its student body for international students?", 
+        escape=FALSE, position="left") %>% #Use align to chance the alignment of each column 
+  kable_classic(full_width = F, 
+                html_font = "verdana") # %>% #Controls font and width of table 
+
+# topline analysis for q5
+topline(df = moral_group, variable = g2q5, 
+        weight = weight, pct = FALSE, cum_pct=FALSE) %>% 
+  kable(digits=c(0, 0, 1), 
+        col.names = c('Response', 'N', 
+                      'Percent <br> Responding'),#Changes names of the columns to make them more readable for people 
+        align=('lcc'),caption = "Question: What is your opinion on the percentage of the student body that is being put aside for international students?", 
+        escape=FALSE, position="left") %>% #Use align to chance the alignment of each column 
+  kable_classic(full_width = F, 
+                html_font = "verdana") # %>% #Controls font and width of table 
+
+  
+m_q2 <- ggplot(moral_group,
+               aes(x = g2q2)) +
+  geom_bar(stat = "count", color = "black", fill = "red") +
+  xlab("Are you in favor or opposition to the universities new policy of reserving 15% of its student body for international students?")
+m_q2
+
+m_q3 <- ggplot(moral_group,
+               aes(x = g2q3)) +
+  geom_bar(stat = "count", color = "black", fill = "pink") +
+  xlab("Did the article you just read shape your opinion to the previous question?")
+m_q3
+
+m_q4 <- ggplot(moral_group,
+               aes(x = g2q4)) +
+  geom_bar(stat = "count", color = "black", fill = "lavender") +
+  xlab("How convincing did you find the article to be in justifying the universities new policy of reserving 15% of its student body for international students?")
+m_q4
+
+m_q5 <- ggplot(moral_group,
+               aes(x = g2q5)) +
+  geom_bar(stat = "count", color = "black", fill = "yellow") +
+  xlab("What is your opinion on the percentage of the student body that is being put aside for international students?")
+m_q5
+
+```
+
+
+# Findings
+<!--
+Findings: Report the statistic you obtained along with the information to decide whether the null hypothesis can be rejected or not. Use a plot and/or table with a proper label.
+-->
+
+```{r}
+# comparing the q2 - "Are you in favor or opposition to the universities new policy of reserving 15% of its student body for international students?" across groups
+combined_percentage <- rbind(transform(control_group$g2q2, dataset = "control"),
+                             transform(economic_group$g2q2, dataset = "economic"),
+                             transform(moral_group$g2q2, dataset = "moral"))
+
+head(combined_percentage)
+
+percentage_plot <- ggplot(combined_percentage,
+                          aes(x = X_data, y = dataset, fill = dataset)) +
+  geom_bar(stat = "identity") +
+  labs(title = "Are you in favor or opposition to the universities new policy of reserving 15% of its student body for international students?", x = "Participant Response") +
+  theme_minimal()
+percentage_plot
+```
+
+
+```{r}
+# comparing the q3 - "Did the article you just read shape your opinion to the previous question?" across groups
+combined_q3 <- rbind(transform(control_group$g2q3, dataset = "control"),
+                             transform(economic_group$g2q3, dataset = "economic"),
+                             transform(moral_group$g2q3, dataset = "moral"))
+
+head(combined_q3)
+
+q3_comparison_plot <- ggplot(combined_q3,
+                          aes(x = X_data, y = dataset, fill = dataset)) +
+  geom_bar(stat = "identity") +
+  labs(title = "Did the article you just read shape your opinion to the previous question?", x = "Participant Response") +
+  theme_minimal()
+q3_comparison_plot
+```
+
+```{r}
+# comparing the q4 - "How convincing did you find the article to be in justifying the universities new policy of reserving 15% of its student body for international students?" across groups
+combined_q4 <- rbind(transform(control_group$g2q4, dataset = "control"),
+                             transform(economic_group$g2q4, dataset = "economic"),
+                             transform(moral_group$g2q4, dataset = "moral"))
+
+head(combined_q4)
+
+q4_comparison_plot <- ggplot(combined_q4,
+                          aes(x = X_data, y = dataset, fill = dataset)) +
+  geom_bar(stat = "identity") +
+  labs(title = "How convincing did you find the article to be in justifying the universities new policy of reserving 15% of its student body for international students?", x = "Participant Response") +
+  theme_minimal()
+q4_comparison_plot
+```
+
+```{r}
+# comparing the q5 - "What is your opinion on the percentage of the student body that is being put aside for international students?" across groups
+combined_q5 <- rbind(transform(control_group$g2q5, dataset = "control"),
+                             transform(economic_group$g2q5, dataset = "economic"),
+                             transform(moral_group$g2q5, dataset = "moral"))
+
+head(combined_q5)
+
+q5_comparison_plot <- ggplot(combined_q5,
+                          aes(x = X_data, y = dataset, fill = dataset)) +
+  geom_bar(stat = "identity") +
+  labs(title = "What is your opinion on the percentage of the student body that is being put aside for international students?", x = "Participant Response") +
+  theme_minimal()
+q5_comparison_plot
+```
+
+```{r}
+# ethnicity and gender correlation
+
+  g2 <- g2 %>%   
+    mutate(eth = case_when(
+      ethnicity	== 1	~ 'White', 
+      ethnicity == 2 ~	'Black, or African American',
+      ethnicity	== 3	~ 'American Indian or Alaska Native', 
+      ethnicity == 4	~ 'Asian Indian', 
+      ethnicity == 5	~ 'Chinese', 
+      ethnicity	== 6	~ 'Filipino', 
+      ethnicity	== 7	~ 'Japanese', 
+      ethnicity	== 8	~ 'Korean', 
+      ethnicity	== 9	~ 'Vietnamese', 
+      ethnicity	== 10	~ 'Other Asian', 
+      ethnicity	== 11	~ 'Native Hawaiian',
+      ethnicity	== 12	~ 'Guamanian', 
+      ethnicity	== 13	~ 'Samoan', 
+      ethnicity	== 14	~ 'Other Pacific Islander',
+      ethnicity	== 15	~ 'Some other race', 
+      ethnicity	== 16	~ 'Prefer not to answer'))
+
+
+g2 <- g2 %>%
+  mutate(gen = case_when(
+    gender == 1 ~ 'Male',
+    gender == 2 ~ 'Female'))
+
+gender_q2 <- ggplot(g2,
+                         aes(x = g2q2, y = gen, fill = gen)) +
+  geom_bar(stat = "identity") +
+  labs(title = "Analysis of Gender with Question 2") +
+  theme_minimal()
+
+gender_q2
+
+gender_q3 <- ggplot(g2,
+                         aes(x = g2q3, y = gen, fill = gen)) +
+  geom_bar(stat = "identity") +
+  labs(title = "Analysis of Gender with Question 3") +
+  theme_minimal()
+
+gender_q3
+
+gender_q4 <- ggplot(g2,
+                         aes(x = g2q4, y = gen, fill = gen)) +
+  geom_bar(stat = "identity") +
+  labs(title = "Analysis of Gender with Question 4") +
+  theme_minimal()
+
+gender_q4
+
+gender_q5 <- ggplot(g2,
+                         aes(x = g2q5, y = gen, fill = gen)) +
+  geom_bar(stat = "identity") +
+  labs(title = "Analysis of Gender with Question 5") +
+  theme_minimal()
+
+gender_q5
+
+educ_q2 <- ggplot(g2,
+                         aes(x = g2q2, y = educ4, fill = educ4)) +
+  geom_bar(stat = "identity") +
+  labs(title = "Analysis of Education with Question 2") +
+  theme_minimal()
+
+educ_q2
+
+educ_q3 <- ggplot(g2,
+                         aes(x = g2q3, y = educ4, fill = educ4)) +
+  geom_bar(stat = "identity") +
+  labs(title = "Analysis of Education with Question 3") +
+  theme_minimal()
+
+educ_q3
+
+educ_q4 <- ggplot(g2,
+                         aes(x = g2q4, y = educ4, fill = educ4)) +
+  geom_bar(stat = "identity") +
+  labs(title = "Analysis of Education with Question 4") +
+  theme_minimal()
+
+educ_q4
+
+educ_q5 <- ggplot(g2,
+                         aes(x = g2q5, y = educ4, fill = educ4)) +
+  geom_bar(stat = "identity") +
+  labs(title = "Analysis of Education with Question 5") +
+  theme_minimal()
+
+educ_q5
+
+
+```
+
+
+```{r}
+#trying out ANOVA test
+
+anova_age <- aov(age ~ g2_group, data = g2)
+summary(anova_age)
+
+anova_gender <- aov(gender ~ g2_group, data = g2)
+summary(anova_gender)
+
+anova_ethnicity <- aov(ethnicity ~ g2_group, data = g2)
+summary(anova_ethnicity)
+
+anova_age1 <- aov(age ~ g2q2, data = g2)
+summary(anova_age1)
+
+```
+
+
+# Interpretation
+<!--
+Interpretation:
+Please see the google doc submitted alongside this file to understand our finsings in detail.
+
+-->
