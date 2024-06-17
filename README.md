@@ -6,9 +6,12 @@ We focussed on the multifaceted dynamics surrounding support for international s
 
 ## Experimental Design
 We conducted a survey with three groups:
-Control group : no justifications provided 
-Economic group : A group exposed to economic justifications 
-Moral group : A group exposed to moral justifications
+
+Control group : no justifications provided `control group article.png`
+
+Economic group : A group exposed to economic justifications `economic article.png`
+
+Moral group : A group exposed to moral justifications `moral article.png`
 
 ## Hypothesis
 We expected to find that Americans will prefer the economic justification for setting aside a percentage of the student body for international students over the moral justification.
